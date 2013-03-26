@@ -27,3 +27,8 @@ probe syscall.access.return {
 		printf ("%s '%s' %ld\n", name, user_string ($filename), $return)
 	}
 }
+
+probe timer.s (10) {
+	printf ("TIMEOUT\n")
+	exit ()
+}

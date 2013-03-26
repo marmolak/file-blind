@@ -31,7 +31,7 @@ int main (int argc, char **argv)
 		close (fd);
 	}
 	wait (NULL);
-	sleep (10);
+	sleep (15);
 
 	return EXIT_SUCCESS;
 }
