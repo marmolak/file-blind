@@ -10,12 +10,10 @@ exit ($ret);
 sub main {
 	open my $stap, "stap ./syscall-monitor.stp -c ./test|" or die "Can't fork! $!";
 
+	# get list of called syscalls, path names, return codes
 	my @calls = ();
 	while ( my $line = <$stap> ) {
-		next if ( $line !~ m/^'PROBE',/ );
-
 		tie my %call, 'CallsHash', $line;
-
 		if ( ! %call ) {
 			print STDERR "Wrong line! $line";
 			next;
