@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <sys/vfs.h>
 
 int main (int argc, char **argv)
 {
@@ -33,6 +34,8 @@ int main (int argc, char **argv)
 		fd = creat ("parent .creat", O_RDWR);
 		close (fd);
 	}
+
+	statfs ("parent.statfs", NULL);
 	wait (NULL);
 	sleep (15);
 

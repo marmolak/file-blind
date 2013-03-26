@@ -40,6 +40,12 @@ probe syscall.lstat.return {
 	}
 }
 
+probe syscall.statfs.return {
+	if ( ppids [pid ()] ) {
+		printf ("PROBE %s '%s' %ld\n", name, user_string ($pathname), $return)
+	}
+}
+
 probe timer.s (10) {
 	printf ("TIMEOUT\n")
 	exit ()
