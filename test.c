@@ -36,6 +36,9 @@ int main (int argc, char **argv)
 	}
 
 	statfs ("parent.statfs", NULL);
+	/* for parser */
+	statfs ("parent,'.statfs", NULL);
+	/**/
 	wait (NULL);
 	sleep (15);
 
