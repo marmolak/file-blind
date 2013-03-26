@@ -10,16 +10,21 @@
 int main (int argc, char **argv)
 {
 	if ( argc >= 3 ) {
-		printf ("%s %s %s\n", argv[0], argv[1], argv[2]);
+		printf ("%s %s\n", argv[1], argv[2]);
 	}
+	fflush (0);
 
 	int fd = open ("first.parent.open", O_RDONLY);
-	close (fd);
+	if ( fd >= 0 ) {
+		close (fd);
+	}
 
 	const pid_t pid = fork ();
 	if ( pid == 0 ) {
 		int fd = open ("child.open", O_RDONLY);
-		close (fd);
+		if ( fd >= 0 ) {
+			close (fd);
+		}
 
 		const pid_t c_pid = fork ();
 		if ( c_pid == 0 ) {
@@ -34,9 +39,15 @@ int main (int argc, char **argv)
 		exit (EXIT_SUCCESS);
 	} else if ( pid > 0 ) {
 		int fd = open ("parent.open", O_RDONLY);
-		close (fd);
+		if ( fd >= 0 ) {
+			close (fd);
+		}
+		/* for parser */
 		fd = creat ("parent .creat", O_RDWR);
-		close (fd);
+		/**/
+		if ( fd >= 0 ) {
+			close (fd);
+		}
 	}
 
 	statfs ("parent.statfs", NULL);
