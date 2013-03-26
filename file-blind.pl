@@ -33,7 +33,8 @@ sub main {
 	while ( my $line = <$stap> ) {
 		my @call = split_line ($line);
 		if ( ! @call ) {
-			print STDERR "Wrong line! $line";
+			# is program line? just print line
+			print $line;
 			next;
 		}
 
