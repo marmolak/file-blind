@@ -23,10 +23,10 @@ sub split_line {
 	return @fields;
 }
 
-sub main {
-	my ($argc) = @_;
+sub monitor_mode {
+	my ($argv) = @_;
 
-	open my $stap, "stap ./syscall-monitor.stp -c @$argc|" or die "Can't fork! $!";
+	open my $stap, "stap ./syscall-monitor.stp -c @$argv|" or die "Can't fork! $!";
 
 	# get list of called syscalls, path names, return codes
 	my @calls = ();
@@ -41,6 +41,17 @@ sub main {
 		push @calls, \@call;
 	}
 	close $stap or die "Failed! I can't run program as param!";
+
+	return @calls;
+}
+
+sub inject_mode {
+}
+
+sub main {
+	my ($argv) = @_;
+
+	my @calls = monitor_mode ($argv);
 
 	return 0;
 }
