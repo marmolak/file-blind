@@ -1,0 +1,29 @@
+global ppids
+
+probe begin {
+	ppids [target ()] = 1
+}
+
+probe kprocess.create {
+	if ( ppids [pid ()] ) {
+		ppids [ new_pid ] = 1;
+	}
+}
+
+probe syscall.open.return {
+	if ( ppids [pid ()] ) {
+		printf ("%s '%s' %ld\n", name, user_string ($filename), $return)
+	}
+}
+
+probe syscall.creat.return {
+	if ( ppids [pid ()] ) {
+		printf ("%s '%s' %ld\n", name, user_string ($pathname), $return)
+	}
+}
+
+probe syscall.access.return {
+	if ( ppids [pid ()] ) {
+		printf ("%s '%s' %ld\n", name, user_string ($filename), $return)
+	}
+}
