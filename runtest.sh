@@ -1,6 +1,6 @@
 #!/bin/bash
 
-stap ./syscall-monitor.stp -c ./test
+stap ./syscall-monitor.stp -c "./test 1 2"
 RET=$?
 if [ "$RET" -ne "0" ]; then
 	echo "FAIL! Error!"

@@ -1,12 +1,12 @@
 global ppids
 
-probe begin {
-	ppids [target ()] = 1
-}
-
 function escape (s) {
 	cs = str_replace (s, "'", "\\'")
 	return str_replace (cs, ",", "\\,")
+}
+
+probe begin {
+	ppids [target ()] = 1
 }
 
 probe kprocess.create {
@@ -52,6 +52,5 @@ probe syscall.statfs.return {
 }
 
 probe timer.s (10) {
-	printf ("'TIMEOUT'\n")
 	exit ()
 }

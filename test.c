@@ -9,6 +9,10 @@
 
 int main (int argc, char **argv)
 {
+	if ( argc >= 3 ) {
+		printf ("%s %s %s\n", argv[0], argv[1], argv[2]);
+	}
+
 	int fd = open ("first.parent.open", O_RDONLY);
 	close (fd);
 
