@@ -12,19 +12,31 @@ probe kprocess.create {
 
 probe syscall.open.return {
 	if ( ppids [pid ()] ) {
-		printf ("%s '%s' %ld\n", name, user_string ($filename), $return)
+		printf ("PROBE %s '%s' %ld\n", name, user_string ($filename), $return)
 	}
 }
 
 probe syscall.creat.return {
 	if ( ppids [pid ()] ) {
-		printf ("%s '%s' %ld\n", name, user_string ($pathname), $return)
+		printf ("PROBE %s '%s' %ld\n", name, user_string ($pathname), $return)
 	}
 }
 
 probe syscall.access.return {
 	if ( ppids [pid ()] ) {
-		printf ("%s '%s' %ld\n", name, user_string ($filename), $return)
+		printf ("PROBE %s '%s' %ld\n", name, user_string ($filename), $return)
+	}
+}
+
+probe syscall.stat.return {
+	if ( ppids [pid ()] ) {
+		printf ("PROBE %s '%s' %ld\n", name, user_string ($filename), $return)
+	}
+}
+
+probe syscall.lstat.return {
+	if ( ppids [pid ()] ) {
+		printf ("PROBE %s '%s' %ld\n", name, user_string ($filename), $return)
 	}
 }
 

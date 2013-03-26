@@ -20,9 +20,12 @@ int main (int argc, char **argv)
 		if ( c_pid == 0 ) {
 			access ("child.child.access", F_OK);
 			exit (EXIT_SUCCESS);
-		} else if ( pid > 0 ) {
+		} else if ( c_pid > 0 ) {
+			stat ("child.stat", NULL);
 			wait (NULL);
 		}
+
+		lstat ("child.lstat", NULL);
 		exit (EXIT_SUCCESS);
 	} else if ( pid > 0 ) {
 		int fd = open ("parent.open", O_RDONLY);
