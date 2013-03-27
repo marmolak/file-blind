@@ -1,0 +1,24 @@
+global ppids
+
+probe begin {
+	ppids [target ()] = 1
+}
+
+probe kprocess.create {
+	if ( ppids [pid ()] ) {
+		ppids [new_pid] = 1;
+	}
+}
+
+probe kprocess.release {
+	if ( ppids [pid ()] ) {
+		delete ppids [released_pid]
+	}
+}
+
+# stupid piece of code
+probe syscall.%syscall%.return {
+	if ( (ppids [pid ()]) && (user_string ($filename) == "%pathname%") && ($return == %ret%) ) {
+		$return = %new_ret%
+	}
+}

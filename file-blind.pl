@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Errno qw(EPERM :POSIX);
 use Data::Dumper;
+use File::Temp;
 
 my $ret = main (\@ARGV);
 exit ($ret);
@@ -69,17 +70,47 @@ sub get_file_list {
 	return @calls;
 }
 
-sub blind_files_impl {
+sub make_probe {
 	my ($call) = @_;
-
 	my ($syscall, $path, $ret) = @$call;
+
+	open my $templ, '<', 'syscall-injector.tstp' or die "Can't open stp template file syscall-injector.tstp!";
+	my $probe_stp = File::Temp->new (SUFFIX => '.stp', UNLINK => 1) or die "Can't create probe file!";
+
+	while ( my $line = <$templ> ) {
+		$line =~ s/%syscall%/$syscall/;
+		$line =~ s/%pathname%/$path/;
+		$line =~ s/%ret%/$ret/;
+		my $errno = EPERM;
+		$errno = -$errno;
+		$line =~ s/%new_ret%/$errno/;
+		print $probe_stp $line;
+	}
+
+	flush $probe_stp;
+	return $probe_stp;
 }
 
-sub blind_files {
-	my ($calls) = @_;
+sub run_probe ($$) {
+	my ($probe, $argv) = @_;
+
+	my $probe_name = $probe->filename ();
+	system ("stap -g $probe_name -c \"@$argv\"");
+}
+
+sub blind_files_impl ($$) {
+	my ($call, $argv) = @_;
+
+	my $probe = make_probe ($call);
+	run_probe ($probe, $argv);
+	exit ();
+}
+
+sub blind_files ($$) {
+	my ($calls, $argv) = @_;
 
 	foreach my $call (@$calls) {
-		blind_files_impl ($call);
+		blind_files_impl ($call, $argv);
 	}
 }
 
@@ -92,6 +123,8 @@ sub main {
 		print "Nothing to examine.\n";
 		return 0;
 	}
+
+	blind_files (\@calls, $argv);
 
 	return 0;
 }
