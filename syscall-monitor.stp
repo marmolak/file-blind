@@ -51,6 +51,12 @@ probe syscall.statfs.return {
 	}
 }
 
+probe syscall.unlink.return {
+	if ( ppids [pid ()] ) {
+		printf ("'PROBE','%s','%s','%ld'\n", name, escape (user_string ($pathname)), $return)
+	}
+}
+
 probe timer.s (10) {
 	exit ()
 }

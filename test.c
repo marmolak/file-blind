@@ -42,6 +42,8 @@ int main (int argc, char **argv)
 		if ( fd >= 0 ) {
 			close (fd);
 		}
+
+		unlink ("parent.unlink");
 		/* for parser */
 		fd = creat ("parent .creat", O_RDWR);
 		/**/
