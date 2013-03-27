@@ -18,7 +18,7 @@ probe kprocess.release {
 
 # stupid piece of code
 probe syscall.%syscall%.return {
-	if ( (ppids [pid ()]) && (user_string ($filename) == "%pathname%") && ($return == %ret%) ) {
+	if ( (ppids [pid ()]) && (user_string (%paramname%) == "%pathname%") && ($return == %ret%) ) {
 		$return = %new_ret%
 	}
 }

@@ -84,6 +84,13 @@ sub make_probe {
 		my $errno = EPERM;
 		$errno = -$errno;
 		$line =~ s/%new_ret%/$errno/;
+
+		my $param_name = "\$filename";
+		if ( ($syscall eq "unlink") || ($syscall eq "creat") || ($syscall eq "statfs") ) {
+			$param_name = "\$pathname";
+		}
+		$line =~ s/%paramname%/$param_name/g;
+
 		print $probe_stp $line;
 	}
 
