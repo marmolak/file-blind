@@ -58,6 +58,18 @@ sub get_file_list {
 	return @calls;
 }
 
+sub blind_files_impl {
+
+}
+
+sub blind_files {
+	my ($calls) = @_;
+
+	foreach my $call (@$calls) {
+
+	}
+}
+
 sub main {
 	my ($argv) = @_;
 
