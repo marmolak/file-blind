@@ -11,7 +11,9 @@ sub split_line {
 	my ($line) = @_;
 
 	chomp $line;
-	$line =~ s/([^\\]?)'/$1/g;
+	$line =~ s/(?<!\\)'([\W|\w])(?<!\\)'/$1/g;
+	$line =~ s/^'//g;
+	$line =~ s/'$//g;
 	my @fields = split (/(?<!\\),/x, $line);
 	if (scalar (@fields) < 4) {
 		return ();
@@ -37,6 +39,14 @@ sub is_white_listed {
 	return 0;
 }
 
+sub unescape {
+	my ($s) = @_;
+
+	$s =~ s/\\,/,/g;
+	$s =~ s/\\'/'/g;
+	return $s;
+}
+
 sub get_file_list {
 	my ($argv) = @_;
 
@@ -51,6 +61,7 @@ sub get_file_list {
 			print $line;
 			next;
 		}
+		$call[1] = unescape ($call[1]);
 		push (@calls, \@call) unless is_white_listed (\@call);
 	}
 	close $stap or die "FAIL! I can't execute program!";
@@ -59,14 +70,14 @@ sub get_file_list {
 }
 
 sub blind_files_impl {
-
+	my ($call) = @_;
 }
 
 sub blind_files {
 	my ($calls) = @_;
 
 	foreach my $call (@$calls) {
-
+		blind_files_impl ($call);
 	}
 }
 
