@@ -103,7 +103,6 @@ sub blind_files_impl ($$) {
 
 	my $probe = make_probe ($call);
 	run_probe ($probe, $argv);
-	exit ();
 }
 
 sub blind_files ($$) {
