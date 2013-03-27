@@ -71,6 +71,8 @@ sub get_file_list {
 
 sub blind_files_impl {
 	my ($call) = @_;
+
+	my ($syscall, $path, $ret) = @$call;
 }
 
 sub blind_files {

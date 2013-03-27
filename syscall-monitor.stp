@@ -11,7 +11,13 @@ probe begin {
 
 probe kprocess.create {
 	if ( ppids [pid ()] ) {
-		ppids [ new_pid ] = 1;
+		ppids [new_pid] = 1;
+	}
+}
+
+probe kprocess.release {
+	if ( ppids [pid ()] ) {
+		delete ppids [released_pid]
 	}
 }
 
