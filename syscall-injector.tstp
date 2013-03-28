@@ -22,3 +22,7 @@ probe syscall.%syscall%.return {
 		$return = %new_ret%
 	}
 }
+
+probe timer.s (10) {
+	exit ()
+}
