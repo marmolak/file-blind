@@ -1,6 +1,5 @@
 #!/usr/bin/expect -f
 
-
 spawn ./file-blind.pl passwd
 
 while { 1 } {
