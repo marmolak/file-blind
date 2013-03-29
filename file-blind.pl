@@ -105,10 +105,13 @@ sub run_probe ($$) {
 	my ($probe, $argv) = @_;
 
 	my $probe_name = $probe->filename ();
-	my $pid = open (my $cmd, '-|', "stap -g $probe_name -c \"@$argv\"");
-	if ( $pid > 0 ) {
+
+	my $pid = fork ();
+	if ( $pid == 0 ) {
+		exec ("/usr/bin/stap", "-g", "$probe_name", "-c", @$argv);
+		exit (0);
+	} elsif ( $pid > 0 ) {
 		waitpid ($pid, 0);
-		close $cmd;
 	} 
 }
 
