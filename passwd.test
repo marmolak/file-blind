@@ -1,0 +1,27 @@
+#!/usr/bin/expect -f
+
+
+spawn ./file-blind.pl passwd
+
+while { 1 } {
+	set timeout 60
+	expect { 
+		"New password:" { }
+		"Kerberos 5 Password" { }
+		timeout { puts "timeout reached!"; continue; }
+		eof { exit 1 }
+	}
+	send "\n"
+	expect {
+		"Retype new password" { }
+		"passwd: Authentication token manipulation error" { continue; }
+		timeout { puts "timeout reached!"; continue; }
+		eof { exit 1 }
+	}
+	send "\n"
+	expect {
+		"No password supplied" { }
+		timeout { puts "timeout reached!"; continue; }
+		eof { exit 1 }
+	}
+}
