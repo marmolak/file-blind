@@ -57,7 +57,7 @@ sub get_file_list {
 
 	my $fn = fileno ($tmp);
 	my $output = "/dev/fd/$fn";
- 	system ("/usr/bin/stap", "-w", "./syscall-monitor.stp", "-o", $output, "-c", "\"@$argv\"");
+ 	system ("/usr/bin/stap", "-w", "./syscall-monitor.stp", "-o", $output, "-c", @$argv);
 
 	my @calls = ();
 	# get list of called syscalls, path names, return codes
