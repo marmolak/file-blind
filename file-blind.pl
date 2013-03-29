@@ -57,7 +57,7 @@ sub get_file_list {
 
 	my $fn = fileno ($tmp);
 	my $output = "/dev/fd/$fn";
- 	system ("/usr/bin/stap", "./syscall-monitor.stp", "-o", $output, "-c", "\"@$argv\"");
+ 	system ("/usr/bin/stap", "-w", "./syscall-monitor.stp", "-o", $output, "-c", "\"@$argv\"");
 
 	my @calls = ();
 	# get list of called syscalls, path names, return codes
@@ -80,6 +80,7 @@ sub make_probe {
 
 	open my $templ, '<', 'syscall-injector.tstp' or die "Can't open stp template file syscall-injector.tstp!";
 	my $probe_stp = File::Temp->new (SUFFIX => '.stp', UNLINK => 1) or die "Can't create probe file!";
+	fcntl($probe_stp, F_SETFD, 0);
 
 	while ( my $line = <$templ> ) {
 		$line =~ s/%syscall%/$syscall/;
@@ -105,11 +106,12 @@ sub make_probe {
 sub run_probe ($$) {
 	my ($probe, $argv) = @_;
 
-	my $probe_name = $probe->filename ();
+	my $fn = fileno ($probe);
+	my $probe_name = "/dev/fd/$fn";
 
 	my $pid = fork ();
 	if ( $pid == 0 ) {
-		exec ("/usr/bin/stap", "-g", "$probe_name", "-c", @$argv);
+		exec ("/usr/bin/stap", "-w", "-g", "$probe_name", "-c", @$argv);
 		exit (0);
 	} elsif ( $pid > 0 ) {
 		waitpid ($pid, 0);
