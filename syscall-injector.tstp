@@ -11,7 +11,7 @@ probe kprocess.create {
 }
 
 probe kprocess.release {
-	if ( ppids [pid ()] ) {
+	if ( ppids [released_pid] ) {
 		delete ppids [released_pid]
 	}
 }
@@ -21,8 +21,4 @@ probe syscall.%syscall%.return {
 	if ( (ppids [pid ()]) && (user_string (%paramname%) == "%pathname%") && ($return == %ret%) ) {
 		$return = %new_ret%
 	}
-}
-
-probe timer.s (10) {
-	exit ()
 }

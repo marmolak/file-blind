@@ -141,7 +141,7 @@ sub main {
 
 	# remove duplicates
 	my %seen = ();
-	my @uniq_calls = grep { ! $seen{ join (',', $_) }++ } @calls;
+	my @uniq_calls = grep { ! $seen{ join (',', @$_) }++ } @calls;
 
 	blind_files (\@uniq_calls, $argv);
 
