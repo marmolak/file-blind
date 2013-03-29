@@ -62,7 +62,3 @@ probe syscall.unlink.return {
 		printf ("'PROBE','%s','%s','%ld'\n", name, escape (user_string ($pathname)), $return)
 	}
 }
-
-probe timer.s (10) {
-	exit ()
-}

@@ -5,6 +5,8 @@ use Errno qw(EPERM :POSIX);
 use Data::Dumper;
 use File::Temp;
 
+
+my $old_fh = select(STDOUT); $| = 1; select($old_fh);
 my $ret = main (\@ARGV);
 exit ($ret);
 
@@ -51,11 +53,11 @@ sub unescape {
 sub get_file_list {
 	my ($argv) = @_;
 
-	open my $stap, "stap ./syscall-monitor.stp -c \"@$argv\"|" or die "Can't fork! $!";
+	my $pid = open (my $stap, "stap ./syscall-monitor.stp -c \"@$argv\" |") or die "Can't fork! $!";
 
 	# get list of called syscalls, path names, return codes
 	my @calls = ();
-	while ( my $line = <$stap> ) {
+	while ( (defined <$stap>) && (my $line = <$stap>) ) {
 		my @call = split_line ($line);
 		if ( !@call ) {
 			# is program line? just print line
@@ -65,7 +67,8 @@ sub get_file_list {
 		$call[1] = unescape ($call[1]);
 		push (@calls, \@call) unless is_white_listed (\@call);
 	}
-	close $stap or die "FAIL! I can't execute program!";
+	close $stap;
+	waitpid ($pid, 0);
 
 	return @calls;
 }
@@ -102,13 +105,19 @@ sub run_probe ($$) {
 	my ($probe, $argv) = @_;
 
 	my $probe_name = $probe->filename ();
-	system ("stap -g $probe_name -c \"@$argv\"");
+	my $pid = open (my $cmd, '-|', "stap -g $probe_name -c \"@$argv\"");
+	if ( $pid > 0 ) {
+		waitpid ($pid, 0);
+		close $cmd;
+	} 
 }
 
 sub blind_files_impl ($$) {
 	my ($call, $argv) = @_;
 
+	print STDERR "\nBlinding " . join (',', @$call) . "\n";
 	my $probe = make_probe ($call);
+	print STDERR "\nCompiling and running.\n";
 	run_probe ($probe, $argv);
 }
 
@@ -130,7 +139,11 @@ sub main {
 		return 0;
 	}
 
-	blind_files (\@calls, $argv);
+	# remove duplicates
+	my %seen = ();
+	my @uniq_calls = grep { ! $seen{ join (',', $_) }++ } @calls;
+
+	blind_files (\@uniq_calls, $argv);
 
 	return 0;
 }
