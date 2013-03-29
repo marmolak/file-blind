@@ -4,9 +4,8 @@ use warnings;
 use Errno qw(EPERM :POSIX);
 use Data::Dumper;
 use File::Temp;
+use Fcntl qw/F_SETFD F_GETFD/;
 
-
-my $old_fh = select(STDOUT); $| = 1; select($old_fh);
 my $ret = main (\@ARGV);
 exit ($ret);
 
@@ -53,22 +52,24 @@ sub unescape {
 sub get_file_list {
 	my ($argv) = @_;
 
-	my $pid = open (my $stap, "stap ./syscall-monitor.stp -c \"@$argv\" |") or die "Can't fork! $!";
+	my $tmp = File::Temp->new (UNLINK => 1);
+	fcntl($tmp, F_SETFD, 0);
 
-	# get list of called syscalls, path names, return codes
+	my $fn = fileno ($tmp);
+	my $output = "/dev/fd/$fn";
+ 	system ("/usr/bin/stap", "./syscall-monitor.stp", "-o", $output, "-c", "\"@$argv\"");
+
 	my @calls = ();
-	while ( (defined <$stap>) && (my $line = <$stap>) ) {
+	# get list of called syscalls, path names, return codes
+	while ( (defined <$tmp>) && (my $line = <$tmp>) ) {
 		my @call = split_line ($line);
 		if ( !@call ) {
-			# is program line? just print line
-			print $line;
 			next;
 		}
 		$call[1] = unescape ($call[1]);
 		push (@calls, \@call) unless is_white_listed (\@call);
 	}
-	close $stap;
-	waitpid ($pid, 0);
+	close $tmp;
 
 	return @calls;
 }
