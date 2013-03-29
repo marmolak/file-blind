@@ -115,7 +115,7 @@ sub run_probe ($$) {
 sub blind_files_impl ($$) {
 	my ($call, $argv) = @_;
 
-	print STDERR "\nBlinding " . join (',', @$call) . "\n";
+	print STDERR "\nBlinding call: $call->[0] (\"$call->[1]\") = $call->[2]\n";
 	my $probe = make_probe ($call);
 	print STDERR "\nCompiling and running.\n";
 	run_probe ($probe, $argv);
