@@ -1,0 +1,47 @@
+global ppids
+global ran
+global parent_proc = 0
+global lock = 0
+
+probe kprocess.create {
+
+	proc_name =  pid2execname (new_pid)
+
+	if ( (proc_name == "su") && (parent_proc == 0) ) {
+		delete ppids
+		parent_proc = new_pid
+		ppids [new_pid] = 1;
+		next
+	}
+
+	if ( (proc_name == "su") && (ppids [ppid ()]) && !(ppids [new_pid]) ) {
+		ppids [new_pid] = 1;
+	}
+}
+
+probe kprocess.release {
+	if ( released_pid == parent_proc ) {
+		parent_proc = 0
+		#delete ppids
+		lock = 0
+		next
+	}
+	if ( ppids [released_pid] ) {
+		delete ppids [released_pid]
+	}
+}
+
+probe syscall.open.return {
+	if ( ! ppids [pid ()] ) {
+		next
+	}
+	if ( lock ) {
+		next
+	}
+	if ( !(ran [execname (), name, user_string ($filename), $flags, $mode, $return])) {
+		printf ("blinding %s\n", user_string ($filename));
+		ran [execname (), name, user_string ($filename), $flags, $mode, $return] = 1
+		lock = 1
+		$return = -1
+	}
+}
