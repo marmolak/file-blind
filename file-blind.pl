@@ -56,11 +56,20 @@ sub get_file_list {
 	my ($argv) = @_;
 
 	my $tmp = File::Temp->new (UNLINK => 1);
-	fcntl($tmp, F_SETFD, 0);
+	fcntl ($tmp, F_SETFD, 0);
 
 	my $fn = fileno ($tmp);
 	my $output = "/dev/fd/$fn";
- 	system ("/usr/bin/stap", "-w", "./syscall-monitor.stp", "-o", $output, "-c", @$argv);
+
+	my $spid = run_freezed ($argv);
+
+ 	system ("/usr/bin/stap", "-F", "-m", "blindmonitor", "-w", "./syscall-monitor.stp", "-o", $output);
+
+	open my $proc_pids, '>', "/proc/systemtap/blindmonitor/pids";
+	print $proc_pids $spid;
+	close $proc_pids;
+
+	my $status = unfreeze_proc ($spid);
 
 	my @calls = ();
 	# get list of called syscalls, path names, return codes
@@ -72,8 +81,11 @@ sub get_file_list {
 		$call[1] = unescape ($call[1]);
 		push (@calls, \@call) unless is_white_listed (\@call);
 	}
+	system "cat /dev/fd/$fn";
 	close $tmp;
 
+
+	system ("killall stapio");
 	return @calls;
 }
 
@@ -81,7 +93,7 @@ sub run_injector_probe {
 	system ("stap -F -m blinder -g -w ./syscall-injector.stp 2>/dev/null");
 }
 
-sub run_stopped ($) {
+sub run_freezed ($) {
 	my ($argv) = @_;
 
 	my $pid = fork ();
@@ -96,10 +108,18 @@ sub run_stopped ($) {
 	}
 }
 
+sub unfreeze_proc {
+	my ($pid) = @_;
+
+	kill SIGCONT, $pid;
+	waitpid ($pid, 0);
+	return $?;
+}
+
 sub blind_files_impl ($$) {
 	my ($call, $argv) = @_;
 
-	my $spid = run_stopped ($argv);
+	my $spid = run_freezed ($argv);
 
 	open my $proc_pids, '>', "/proc/systemtap/blinder/pids";
 	print $proc_pids $spid;
@@ -117,13 +137,12 @@ sub blind_files_impl ($$) {
 	print $proc_blocked $call->[1];
 	close $proc_blocked;
 
-	kill SIGCONT, $spid;
-	waitpid ($spid, 0);
-	my $status = $?;
+	my $status = unfreeze_proc ($spid);
 	print "Child exited witch status: $? which is ";
 	if ( $status != 0 ) {
 		print "ERROR!";
 		print "\nChild received " . ($status & 127) . " signal.\n";
+		sleep (10);
 	} else {
 		print "Ok";
 	}

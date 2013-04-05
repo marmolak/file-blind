@@ -5,20 +5,26 @@ function escape (s) {
 	return str_replace (cs, ",", "\\,")
 }
 
-probe begin {
-	ppids [target ()] = 1
+probe procfs("pids").read {
+	foreach (pid in ppids) {
+		$value .= sprintf ("%d\n", pid)
+	}
+}
+
+probe procfs("pids").write {
+	delete ppids;
+	pid = strtol ($value, 10);
+	ppids [pid] = 1
 }
 
 probe kprocess.create {
-	if ( ppids [pid ()] ) {
+	if ( pid in ppids ) {
 		ppids [new_pid] = 1;
 	}
 }
 
 probe kprocess.release {
-	if ( ppids [pid ()] ) {
-		delete ppids [released_pid]
-	}
+	delete ppids [released_pid]
 }
 
 probe syscall.open.return {
