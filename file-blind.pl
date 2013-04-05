@@ -6,6 +6,8 @@ use POSIX qw/SIGSTOP SIGTERM SIGCONT/;
 use Data::Dumper;
 use File::Temp;
 use Fcntl qw/F_SETFD F_GETFD/;
+use English;
+use POSIX ":sys_wait_h";
 
 my $ret = main (\@ARGV);
 exit ($ret);
@@ -76,20 +78,20 @@ sub get_file_list {
 }
 
 sub run_injector_probe {
-	system ("stap -F -m blinder -g -w ./syscall-injector.stp");
+	system ("stap -F -m blinder -g -w ./syscall-injector.stp 2>/dev/null");
 }
 
-sub run_stopped {
+sub run_stopped ($) {
 	my ($argv) = @_;
-	my $pid = fork ();
 
+	my $pid = fork ();
 	if ( $pid == -1 ) {
 		die "Can't run process in freeze state!";
 	} elsif ( $pid == 0 ) {
 		kill SIGSTOP, $$;
 		exec (@$argv);
 		exit (0);
-	} else {
+	} elsif ( $pid > 0 ) {
 		return $pid;
 	}
 }
@@ -107,12 +109,25 @@ sub blind_files_impl ($$) {
 	print $proc_syscall $call->[0];
 	close $proc_syscall;
 
+	open my $proc_count, '>', "/proc/systemtap/blinder/count";
+	print $proc_count 0;
+	close $proc_count;
+
 	open my $proc_blocked, '>', "/proc/systemtap/blinder/blocked_files";
 	print $proc_blocked $call->[1];
 	close $proc_blocked;
 
 	kill SIGCONT, $spid;
 	waitpid ($spid, 0);
+	my $status = $?;
+	print "Child exited witch status: $? which is ";
+	if ( $status != 0 ) {
+		print "ERROR!";
+		print "\nChild received " . ($status & 127) . " signal.\n";
+	} else {
+		print "Ok";
+	}
+	print "\n";
 }
 
 sub blind_files ($$) {

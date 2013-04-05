@@ -9,12 +9,7 @@ function get_errno:long () %{
 global pids
 global blocked_files
 global syscall
-
-
-probe begin {
-	print ("Probing\n")
-}
-
+global counts
 
 probe procfs("blocked_files").read {
 	foreach (file in blocked_files) {
@@ -23,14 +18,16 @@ probe procfs("blocked_files").read {
 }
 
 probe procfs("blocked_files").write {
-	str = substr ($value, 0, strlen ($value))
-	if ( str == "%flush%\n" ) {
-		delete blocked_files
-		next
-	}
 	blocked_files [$value] = 1
 }
 
+probe procfs("count").read {
+	$value = sprintf ("%d\n", counts [syscall])
+}
+
+probe procfs("count").write {
+	counts [syscall] = strtol ($value, 10)
+}
 probe procfs("syscall").read {
 	$value = syscall
 }
@@ -46,13 +43,13 @@ probe procfs("pids").read {
 }
 
 probe procfs("pids").write {
-	pid = strtol (tokenize ($value, "\n,"), 10)
+	pid = strtol ($value, 10)
+	delete pids
+	delete blocked_files
+	delete syscall
+	delete counts
 
-	if ( pid == 0 ) {
-		delete pids
-		next
-	}
-	pids [ pid ] = 1
+	pids [pid] = 1
 }
 
 probe kprocess.create {
@@ -67,21 +64,23 @@ probe kprocess.release {
 
 function do_work:long (name, path) {
 
-	if ( name != syscall ) {
-		return 0;
-	}
-
-	tpath = user_string (path)
-
 	if ( !(pid() in pids) ) {
 		return 0
 	}
 
+	if ( name != syscall ) {
+		return 0
+	}
+
+	tpath = user_string (path)
 	if ( tpath in blocked_files ) {
+		if (counts[name] != 0) {
+			counts[name] --
+			return 0
+		}
 		return get_errno ()
 	}
 }
-
 
 probe syscall.open.return {
 	ret = do_work (name, $filename)
