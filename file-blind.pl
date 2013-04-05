@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use Errno qw(EPERM :POSIX);
+use POSIX qw/SIGSTOP SIGTERM SIGCONT/;
 use Data::Dumper;
 use File::Temp;
 use Fcntl qw/F_SETFD F_GETFD/;
@@ -74,65 +75,56 @@ sub get_file_list {
 	return @calls;
 }
 
-sub make_probe {
-	my ($call) = @_;
-	my ($syscall, $path, $ret) = @$call;
-
-	open my $templ, '<', 'syscall-injector.tstp' or die "Can't open stp template file syscall-injector.tstp!";
-	my $probe_stp = File::Temp->new (SUFFIX => '.stp', UNLINK => 1) or die "Can't create probe file!";
-	fcntl($probe_stp, F_SETFD, 0);
-
-	while ( my $line = <$templ> ) {
-		$line =~ s/%syscall%/$syscall/;
-		$line =~ s/%pathname%/$path/;
-		$line =~ s/%ret%/$ret/;
-		my $errno = EPERM;
-		$errno = -$errno;
-		$line =~ s/%new_ret%/$errno/;
-
-		my $param_name = "\$filename";
-		if ( ($syscall eq "unlink") || ($syscall eq "creat") || ($syscall eq "statfs") ) {
-			$param_name = "\$pathname";
-		}
-		$line =~ s/%paramname%/$param_name/g;
-
-		print $probe_stp $line;
-	}
-
-	flush $probe_stp;
-	return $probe_stp;
+sub run_injector_probe {
+	system ("stap -F -m blinder -g -w ./syscall-injector.stp");
 }
 
-sub run_probe ($$) {
-	my ($probe, $argv) = @_;
-
-	my $fn = fileno ($probe);
-	my $probe_name = "/dev/fd/$fn";
-
+sub run_stopped {
+	my ($argv) = @_;
 	my $pid = fork ();
-	if ( $pid == 0 ) {
-		exec ("/usr/bin/stap", "-w", "-g", "$probe_name", "-c", @$argv);
+
+	if ( $pid == -1 ) {
+		die "Can't run process in freeze state!";
+	} elsif ( $pid == 0 ) {
+		kill SIGSTOP, $$;
+		exec (@$argv);
 		exit (0);
-	} elsif ( $pid > 0 ) {
-		waitpid ($pid, 0);
-	} 
+	} else {
+		return $pid;
+	}
 }
 
 sub blind_files_impl ($$) {
 	my ($call, $argv) = @_;
 
-	print STDERR "\nBlinding call: $call->[0] (\"$call->[1]\") = $call->[2]\n";
-	my $probe = make_probe ($call);
-	print STDERR "\nCompiling and running PROBE...\n\n";
-	run_probe ($probe, $argv);
+	my $spid = run_stopped ($argv);
+
+	open my $proc_pids, '>', "/proc/systemtap/blinder/pids";
+	print $proc_pids $spid;
+	close $proc_pids;
+
+	open my $proc_syscall, '>', "/proc/systemtap/blinder/syscall";
+	print $proc_syscall $call->[0];
+	close $proc_syscall;
+
+	open my $proc_blocked, '>', "/proc/systemtap/blinder/blocked_files";
+	print $proc_blocked $call->[1];
+	close $proc_blocked;
+
+	kill SIGCONT, $spid;
+	waitpid ($spid, 0);
 }
 
 sub blind_files ($$) {
 	my ($calls, $argv) = @_;
 
+	run_injector_probe ();
 	foreach my $call (@$calls) {
+		print "Blinding $call->[0] ($call->[1])\n";
 		blind_files_impl ($call, $argv);
 	}
+
+	system ("staprun -d blinder");
 }
 
 sub main {

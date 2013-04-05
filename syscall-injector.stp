@@ -1,47 +1,132 @@
-global ppids
-global ran
-global parent_proc = 0
-global lock = 0
+%{
+#include <asm-generic/errno-base.h>
+%}
 
-probe kprocess.create {
+function get_errno:long () %{
+	STAP_RETVALUE = -EPERM;
+%}
 
-	proc_name =  pid2execname (new_pid)
+global pids
+global blocked_files
+global syscall
 
-	if ( (proc_name == "su") && (parent_proc == 0) ) {
-		delete ppids
-		parent_proc = new_pid
-		ppids [new_pid] = 1;
+
+probe begin {
+	print ("Probing\n")
+}
+
+
+probe procfs("blocked_files").read {
+	foreach (file in blocked_files) {
+		$value .= sprintf ("%s\n", file)
+	}
+}
+
+probe procfs("blocked_files").write {
+	str = substr ($value, 0, strlen ($value))
+	if ( str == "%flush%\n" ) {
+		delete blocked_files
 		next
 	}
+	blocked_files [$value] = 1
+}
 
-	if ( (proc_name == "su") && (ppids [ppid ()]) && !(ppids [new_pid]) ) {
-		ppids [new_pid] = 1;
+probe procfs("syscall").read {
+	$value = syscall
+}
+
+probe procfs("syscall").write {
+	syscall = $value
+}
+
+probe procfs("pids").read {
+	foreach (pid in pids) {
+		$value = sprintf ("%d\n", pid)
+	}
+}
+
+probe procfs("pids").write {
+	pid = strtol (tokenize ($value, "\n,"), 10)
+
+	if ( pid == 0 ) {
+		delete pids
+		next
+	}
+	pids [ pid ] = 1
+}
+
+probe kprocess.create {
+	if ( pid() in pids ) {
+		pids [new_pid] = 1
 	}
 }
 
 probe kprocess.release {
-	if ( released_pid == parent_proc ) {
-		parent_proc = 0
-		#delete ppids
-		lock = 0
-		next
+	delete pids [released_pid]
+}
+
+function do_work:long (name, path) {
+
+	if ( name != syscall ) {
+		return 0;
 	}
-	if ( ppids [released_pid] ) {
-		delete ppids [released_pid]
+
+	tpath = user_string (path)
+
+	if ( !(pid() in pids) ) {
+		return 0
+	}
+
+	if ( tpath in blocked_files ) {
+		return get_errno ()
 	}
 }
 
+
 probe syscall.open.return {
-	if ( ! ppids [pid ()] ) {
-		next
-	}
-	if ( lock ) {
-		next
-	}
-	if ( !(ran [execname (), name, user_string ($filename), $flags, $mode, $return])) {
-		printf ("blinding %s\n", user_string ($filename));
-		ran [execname (), name, user_string ($filename), $flags, $mode, $return] = 1
-		lock = 1
-		$return = -1
-	}
+	ret = do_work (name, $filename)
+	if ( ret == 0 ) { next }
+	$return = ret
+}
+
+probe syscall.unlink.return {
+	ret = do_work (name, $pathname)
+	if ( ret == 0 ) { next }
+	$return = ret
+}
+
+probe syscall.creat.return {
+	ret = do_work (name, $pathname)
+	if ( ret == 0 ) { next }
+	$return = ret
+}
+
+probe syscall.access.return {
+	ret = do_work (name, $filename)
+	if ( ret == 0 ) { next }
+	$return = ret
+}
+
+probe syscall.stat.return {
+	ret = do_work (name, $filename)
+	if ( ret == 0 ) { next }
+	$return = ret
+}
+
+probe syscall.lstat.return {
+	ret = do_work (name, $filename)
+	if ( ret == 0 ) { next }
+	$return = ret
+}
+
+probe syscall.statfs.return {
+	ret = do_work (name, $pathname)
+	if ( ret == 0 ) { next }
+	$return = ret
+}
+
+probe syscall.unlink.return {
+	ret = do_work (name, $pathname)
+	if ( ret == 0 ) { next }
+	$return = ret
 }
