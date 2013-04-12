@@ -81,7 +81,6 @@ sub get_file_list {
 		$call[1] = unescape ($call[1]);
 		push (@calls, \@call) unless is_white_listed (\@call);
 	}
-	system "cat /dev/fd/$fn";
 	close $tmp;
 
 
