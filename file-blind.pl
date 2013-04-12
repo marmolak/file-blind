@@ -59,10 +59,11 @@ sub get_file_list {
 	my $spid = run_freezed ($argv);
 
 	open my $stap, "/usr/bin/stap -m blindmonitor ./syscall-monitor.stp|";
+	# how to wait?
 	sleep (4);
 
 	proc_write ("/proc/systemtap/blindmonitor/pids", $spid);
-	unfreeze_proc ($spid);
+	async_unfreeze_proc ($spid);
 	while ( my $line = <$stap> ) {
 		my @call = split_line ($line);
 		if ( !@call ) {
@@ -72,6 +73,8 @@ sub get_file_list {
 		push (@calls, \@call) unless is_white_listed (\@call);
 	}
 	close $stap;
+	waitpid ($spid, 0);
+
 	return @calls;
 }
 
@@ -94,10 +97,15 @@ sub run_freezed ($) {
 	}
 }
 
+sub async_unfreeze_proc {
+	my ($pid) = @_;
+	kill SIGCONT, $pid;
+}
+
 sub unfreeze_proc {
 	my ($pid) = @_;
 
-	kill SIGCONT, $pid;
+	async_unfreeze_proc ($pid);
 	waitpid ($pid, 0);
 	return $?;
 }
