@@ -18,7 +18,7 @@ probe procfs("pids").write {
 }
 
 probe kprocess.create {
-	if ( pid in ppids ) {
+	if ( pid () in ppids ) {
 		ppids [new_pid] = 1;
 	}
 }
