@@ -65,9 +65,7 @@ sub get_file_list {
 
  	system ("/usr/bin/stap", "-F", "-m", "blindmonitor", "-w", "./syscall-monitor.stp", "-o", $output);
 
-	open my $proc_pids, '>', "/proc/systemtap/blindmonitor/pids";
-	print $proc_pids $spid;
-	close $proc_pids;
+	proc_write ("/proc/systemtap/blindmonitor/pids", $spid);
 
 	my $status = unfreeze_proc ($spid);
 
@@ -115,26 +113,23 @@ sub unfreeze_proc {
 	return $?;
 }
 
+sub proc_write {
+	my ($file, $value) = @_;
+
+	open my $proc, '>', $file or die "Can't open $file";
+	syswrite ($proc, $value) or die "Can't write value to file";
+	close $proc;
+}
+
 sub blind_files_impl ($$) {
 	my ($call, $argv) = @_;
 
 	my $spid = run_freezed ($argv);
 
-	open my $proc_pids, '>', "/proc/systemtap/blinder/pids";
-	print $proc_pids $spid;
-	close $proc_pids;
-
-	open my $proc_syscall, '>', "/proc/systemtap/blinder/syscall";
-	print $proc_syscall $call->[0];
-	close $proc_syscall;
-
-	open my $proc_count, '>', "/proc/systemtap/blinder/count";
-	print $proc_count 0;
-	close $proc_count;
-
-	open my $proc_blocked, '>', "/proc/systemtap/blinder/blocked_files";
-	print $proc_blocked $call->[1];
-	close $proc_blocked;
+	proc_write ("/proc/systemtap/blinder/pids", $spid);
+	proc_write ("/proc/systemtap/blinder/syscall", $call->[0]);
+	proc_write ("/proc/systemtap/blinder/count", 0);
+	proc_write ("/proc/systemtap/blinder/blocked_files", $call->[1]);
 
 	my $status = unfreeze_proc ($spid);
 	print "Child exited witch status: $? which is ";
