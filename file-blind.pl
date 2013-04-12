@@ -2,13 +2,12 @@
 use strict;
 use warnings;
 use Errno qw(EPERM :POSIX);
+use POSIX ":sys_wait_h";
 use POSIX qw/SIGSTOP SIGTERM SIGCONT/;
 use Data::Dumper;
 use File::Temp;
 use Fcntl qw/F_SETFD F_GETFD/;
 use English;
-use POSIX ":sys_wait_h";
-
 my $ret = main (\@ARGV);
 exit ($ret);
 
@@ -55,23 +54,16 @@ sub unescape {
 sub get_file_list {
 	my ($argv) = @_;
 
-	my $tmp = File::Temp->new (UNLINK => 1);
-	fcntl ($tmp, F_SETFD, 0);
-
-	my $fn = fileno ($tmp);
-	my $output = "/dev/fd/$fn";
+	my @calls = ();
 
 	my $spid = run_freezed ($argv);
 
- 	system ("/usr/bin/stap", "-F", "-m", "blindmonitor", "-w", "./syscall-monitor.stp", "-o", $output);
+	open my $stap, "/usr/bin/stap -m blindmonitor ./syscall-monitor.stp|";
+	sleep (4);
 
 	proc_write ("/proc/systemtap/blindmonitor/pids", $spid);
-
-	my $status = unfreeze_proc ($spid);
-
-	my @calls = ();
-	# get list of called syscalls, path names, return codes
-	while ( (defined <$tmp>) && (my $line = <$tmp>) ) {
+	unfreeze_proc ($spid);
+	while ( my $line = <$stap> ) {
 		my @call = split_line ($line);
 		if ( !@call ) {
 			next;
@@ -79,10 +71,7 @@ sub get_file_list {
 		$call[1] = unescape ($call[1]);
 		push (@calls, \@call) unless is_white_listed (\@call);
 	}
-	close $tmp;
-
-
-	system ("killall stapio");
+	close $stap;
 	return @calls;
 }
 
@@ -136,7 +125,6 @@ sub blind_files_impl ($$) {
 	if ( $status != 0 ) {
 		print "ERROR!";
 		print "\nChild received " . ($status & 127) . " signal.\n";
-		sleep (10);
 	} else {
 		print "Ok";
 	}

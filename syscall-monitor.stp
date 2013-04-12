@@ -25,6 +25,11 @@ probe kprocess.create {
 
 probe kprocess.release {
 	delete ppids [released_pid]
+	foreach (pid in ppids) {
+		next
+	}
+	# if array is empty then exit
+	exit ()
 }
 
 probe syscall.open.return {
