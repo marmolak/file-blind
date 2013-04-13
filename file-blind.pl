@@ -14,6 +14,7 @@ exit ($ret);
 
 sub split_line {
 	my ($line) = @_;
+
 	chomp $line;
 	$line =~ s/(?<!\\)'([\W|\w])(?<!\\)'/$1/g;
 	$line =~ s/^'//g;
