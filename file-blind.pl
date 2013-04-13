@@ -66,6 +66,7 @@ sub get_file_list {
 	# run in background with named pipe on the output
 	system ("/usr/bin/stap -F -m blindmonitor -o $pipepath ./syscall-monitor.stp");
 	open my $stap, '<', $pipepath;
+	unlink ($pipepath);
 	my $read = <$stap>;
 	# proc interface is initialized
 	if ( $read !~ /^STARTED/ ) {
