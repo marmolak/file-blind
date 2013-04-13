@@ -3,11 +3,12 @@ use strict;
 use warnings;
 use Errno qw(EPERM :POSIX);
 use POSIX ":sys_wait_h";
-use POSIX qw/SIGSTOP SIGTERM SIGCONT/;
+use POSIX qw/SIGSTOP SIGTERM SIGCONT  WUNTRACED/;
 use Data::Dumper;
 use File::Temp;
 use Fcntl qw/F_SETFD F_GETFD/;
 use English;
+
 my $ret = main (\@ARGV);
 exit ($ret);
 
@@ -60,7 +61,7 @@ sub get_file_list {
 
 	open my $stap, "/usr/bin/stap -m blindmonitor ./syscall-monitor.stp|";
 	# how to wait?
-	sleep (4);
+	sleep (5);
 
 	proc_write ("/proc/systemtap/blindmonitor/pids", $spid);
 	async_unfreeze_proc ($spid);
@@ -74,7 +75,6 @@ sub get_file_list {
 	}
 	close $stap;
 	waitpid ($spid, 0);
-
 	return @calls;
 }
 
@@ -93,6 +93,7 @@ sub run_freezed ($) {
 		exec (@$argv);
 		exit (0);
 	} elsif ( $pid > 0 ) {
+		waitpid ($pid, WUNTRACED);
 		return $pid;
 	}
 }
