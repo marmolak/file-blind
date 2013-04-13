@@ -1,5 +1,8 @@
 global ppids
 
+probe begin {
+	print ("STARTED\n");
+}
 function escape (s) {
 	cs = str_replace (s, "'", "\\'")
 	return str_replace (cs, ",", "\\,")
@@ -23,15 +26,16 @@ probe kprocess.create {
 	}
 }
 
-probe kprocess.release {
-	delete ppids [released_pid]
-	exit ()
-	next
-
-	foreach (pid in ppids) {
+probe kprocess.exit {
+	if ( !(pid () in ppids) ) {
 		next
 	}
-	# if array is empty then exit
+
+	delete ppids [pid()]
+	foreach (tpid in ppids) {
+		next
+	}
+	exit ()
 }
 
 probe syscall.open.return {

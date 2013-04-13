@@ -3,9 +3,9 @@ use strict;
 use warnings;
 use Errno qw(EPERM :POSIX);
 use POSIX ":sys_wait_h";
-use POSIX qw/SIGSTOP SIGTERM SIGCONT  WUNTRACED/;
+use POSIX qw/SIGSTOP SIGTERM SIGCONT  WUNTRACED mkfifo/;
 use Data::Dumper;
-use File::Temp;
+use File::Temp qw/tempfile/;
 use Fcntl qw/F_SETFD F_GETFD/;
 use English;
 
@@ -14,7 +14,6 @@ exit ($ret);
 
 sub split_line {
 	my ($line) = @_;
-
 	chomp $line;
 	$line =~ s/(?<!\\)'([\W|\w])(?<!\\)'/$1/g;
 	$line =~ s/^'//g;
@@ -59,12 +58,22 @@ sub get_file_list {
 
 	my $spid = run_freezed ($argv);
 
-	open my $stap, "/usr/bin/stap -m blindmonitor ./syscall-monitor.stp|";
-	# how to wait?
-	sleep (5);
+	my (undef, $pipepath) = tempfile ('XXXXXXX', OPEN => 0);
+	mkfifo ($pipepath, 0700);
+	my $arel = AutoRel->new ($pipepath);
+	
+	# run in background with named pipe on the output
+	system ("/usr/bin/stap -F -m blindmonitor -o $pipepath ./syscall-monitor.stp");
+	open my $stap, '<', $pipepath;
+	my $read = <$stap>;
+	# proc interface is initialized
+	if ( $read !~ /^STARTED/ ) {
+		die "end!";
+	}
 
 	proc_write ("/proc/systemtap/blindmonitor/pids", $spid);
 	async_unfreeze_proc ($spid);
+
 	while ( my $line = <$stap> ) {
 		my @call = split_line ($line);
 		if ( !@call ) {
@@ -73,8 +82,8 @@ sub get_file_list {
 		$call[1] = unescape ($call[1]);
 		push (@calls, \@call) unless is_white_listed (\@call);
 	}
-	close $stap;
 	waitpid ($spid, 0);
+	close $stap;
 	return @calls;
 }
 
@@ -90,6 +99,8 @@ sub run_freezed ($) {
 		die "Can't run process in freeze state!";
 	} elsif ( $pid == 0 ) {
 		kill SIGSTOP, $$;
+		$EGID = 20787;
+		$EUID = 20787;
 		exec (@$argv);
 		exit (0);
 	} elsif ( $pid > 0 ) {
@@ -115,7 +126,7 @@ sub proc_write {
 	my ($file, $value) = @_;
 
 	open my $proc, '>', $file or die "Can't open $file";
-	syswrite ($proc, $value) or die "Can't write value to file";
+	syswrite ($proc, $value) or die "Can't write value to file $file";
 	close $proc;
 }
 
@@ -169,4 +180,21 @@ sub main {
 	blind_files (\@uniq_calls, $argv);
 
 	return 0;
+}
+
+package AutoRel;
+use strict;
+use warnings;
+sub new {
+	my ($class, $fd) = @_;
+	my $this = {
+		fd => $fd
+	};
+	bless $this, $class;
+	return $this;
+}
+
+sub DESTROY {
+	my ($this) = @_;
+	close ($this->{fd}) if ($this->{fd});
 }
