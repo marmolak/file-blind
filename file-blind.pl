@@ -9,8 +9,18 @@ use File::Temp qw/tempfile/;
 use Fcntl qw/F_SETFD F_GETFD/;
 use English;
 
-my $ret = main (\@ARGV);
-exit ($ret);
+eval {
+	my $ret = main (\@ARGV);
+	exit ($ret);
+
+} or do {
+	my $err = $@;
+
+	return unless $err;
+
+	print "$err";
+	exit (1);
+};
 
 sub split_line {
 	my ($line) = @_;
@@ -70,7 +80,7 @@ sub get_file_list {
 	my $read = <$stap>;
 	# proc interface is initialized
 	if ( $read !~ /^STARTED/ ) {
-		die "end!";
+		die "Stap not started.";
 	}
 
 	proc_write ("/proc/systemtap/blindmonitor/pids", $spid);
@@ -143,7 +153,7 @@ sub blind_files_impl ($$) {
 	proc_write ("/proc/systemtap/blinder/blocked_files", $call->[1]);
 
 	my $status = unfreeze_proc ($spid);
-	print "Child exited witch status: $? which is ";
+	print "Child exited witch status: " . ($? >> 8) . " which is ";
 	if ( $status != 0 ) {
 		print "ERROR!";
 		print "\nChild received " . ($status & 127) . " signal.\n";
